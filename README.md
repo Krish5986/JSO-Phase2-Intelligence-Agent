@@ -55,9 +55,6 @@ streamlit run app.py
 
 This project demonstrates the ability to orchestrate multi-step AI pipelines, handle API rate limits gracefully, and build user-centric data tools.
 
-```
-
-***
 
 
-```
+
