@@ -1,7 +1,9 @@
 # JSO-Phase2-Intelligence-Agent
 An Agentic AI dashboard built with Streamlit and Gemini 2.5 Flash that processes candidate resumes, extracts structured readiness scores via JSON, and visualizes platform engagement for Admins.
 That is very smart thinking. A good GitHub repository *must* have a strong `README.md` file. It acts as the "homepage" for your code and is the very first thing Vivek and the engineering team will read.
+
 ![JSO Platform Intelligence Dashboard](image (2).png)
+
 ## 🧠 Project Overview
 The Platform Intelligence Agent moves beyond standard chat interfaces by utilizing **Agentic Data Extraction**. It reads unstructured PDF resumes, processes them through a Large Language Model (LLM), and outputs structured JSON data. This data is then dynamically mapped to an interactive Business Intelligence (BI) dashboard.
 
