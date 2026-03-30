@@ -1,12 +1,13 @@
 import streamlit as st
-import google.generativeai as genai
+from google import genai
 import os
 import random
 import pandas as pd
 import matplotlib.pyplot as plt
-import json  # Added for dynamic data parsing
+import json
 from dotenv import load_dotenv
 from PyPDF2 import PdfReader
+import re
 
 # -----------------------------
 # 1. API SETUP
@@ -18,13 +19,8 @@ if not api_key:
     st.error("API key not found. Please check your .env file.")
     st.stop()
 
-genai.configure(api_key=api_key)
-
-# Temperature 0.0 ensures the AI doesn't hallucinate different scores on reload
-model = genai.GenerativeModel(
-    model_name="gemini-2.5-flash",
-    generation_config={"temperature": 0.0}
-)
+client = genai.Client(api_key=api_key)
+MODEL_NAME = "gemini-2.5-flash"
 
 # -----------------------------
 # 2. PAGE CONFIG
@@ -97,7 +93,7 @@ if uploaded_files:
                 "content": text,
                 "logins": random.randint(5, 30),
                 "applications": random.randint(1, 15),
-                "score": random.randint(65, 95) # Placeholder until AI updates it
+                "score": random.randint(65, 95)
             })
             
     if new_data:
@@ -125,9 +121,14 @@ if st.session_state.resume_data:
             
             prompt = f"""
             Analyze these resumes for JSO Phase-2.
-            
-            1) USER SUCCESS RATES (Table with Name, Core Skills, Readiness Score 0-100)
-               - Score highly for AI, RAG, NLP, Data Science, or strong Financial Modeling.
+
+            1) USER SUCCESS RATES
+            Format this EXACTLY as a markdown table with ALL rows filled:
+            | Name | Core Skills | Readiness Score |
+            |------|-------------|-----------------|
+            | filename.pdf | skill1, skill2 | 85 |
+            (One row per candidate, no empty rows, no skipping)
+
             2) JOB MARKET TRENDS (Gaps & Demand)
             3) STRATEGY SUGGESTIONS (3 ways to improve outcomes)
 
@@ -140,33 +141,44 @@ if st.session_state.resume_data:
             """
             
             try:
-                response = model.generate_content(prompt)
+                response = client.models.generate_content(
+                    model=MODEL_NAME,
+                    contents=prompt,
+                    config={"temperature": 0.0}
+                )
                 output_text = response.text
                 
-                # Split the text report from the JSON data
                 if "===JSON===" in output_text:
                     parts = output_text.split("===JSON===")
                     st.session_state.ai_report = parts[0].strip()
                     
-                    # Clean the JSON string (removes markdown formatting if AI added it)
                     json_str = parts[1].strip().strip("```json").strip("```").strip()
                     
                     try:
                         ai_scores = json.loads(json_str)
-                        # Dynamically update the dashboard scores with the AI's real calculations
                         for candidate in st.session_state.resume_data:
                             for ai_data in ai_scores:
                                 if candidate["name"] == ai_data.get("name"):
                                     candidate["score"] = int(ai_data.get("score", candidate["score"]))
-                    except Exception as e:
-                        print(f"JSON extraction failed: {e}") # Fails silently if formatting is weird
+                    except json.JSONDecodeError as e:
+                        st.warning(f"⚠️ Could not parse AI scores. Dashboard will use placeholder values. ({e})")
                 else:
                     st.session_state.ai_report = output_text
                 
-                st.rerun() # Refresh to show updated charts
-                
+                st.rerun()
+
             except Exception as e:
-                st.error("API Quota Exhausted or Connection Error. Please wait a moment and try again.")
+                err = str(e).lower()
+                if "quota" in err or "429" in err or "resource exhausted" in err:
+                    st.error("🚫 API Quota Exhausted. Please wait a moment and try again.")
+                elif "api key" in err or "401" in err or "403" in err:
+                    st.error("🔑 Invalid or missing API key. Please check your `.env` file.")
+                elif "timeout" in err or "deadline" in err:
+                    st.error("⏱️ Request timed out. Please try again.")
+                elif "network" in err or "connection" in err:
+                    st.error("🌐 Network/connection error. Check your internet and try again.")
+                else:
+                    st.error(f"❌ Unexpected error: {e}")
 
 # -----------------------------
 # 8. RESULTS DISPLAY
